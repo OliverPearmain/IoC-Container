@@ -296,4 +296,38 @@ class DependenciesContainerAdvancedTests: XCTestCase {
         XCTAssertCircularDependenciesOfSameTypeWithCustomKeys(elizabeth: elizabeth, charles: charles, william: william, harry: harry)
     }
 
+    
+    
+}
+
+
+class CircularErrorTests: XCTestCase {
+    class A {
+        let b: B
+        init(_ b: B) {
+            self.b = b
+        }
+    }
+
+    class B {
+        let a: A
+        init(_ a: A) {
+            self.a = a
+        }
+    }
+    
+    func test_resolve_givenCircularDependencyInConstructors_thenThrowsSpecificErrorMessage() {
+        let container = DependenciesContainer()
+        
+        container.register(A.self) { A(try $0.resolve(B.self)) }
+        container.register(B.self) { B(try $0.resolve(A.self)) }
+        
+        XCTAssertThrowsError(try container.resolve(A.self)) { error in
+            // TODO
+            print(error)
+        }
+        
+        /// Infinite recursion detected.  Perhaps you are trying to resolve a dependency inside of its own constructor.  Please check your register call.
+        
+    }
 }

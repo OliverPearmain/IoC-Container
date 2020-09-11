@@ -12,6 +12,7 @@ public enum DependencyError: Error, CustomStringConvertible {
     
     case missing(key: String, type: String)
     case typeMismatch(key: String, type: String)
+    case infiniteRecursion(callKeys: [String])
     
     public var description: String {
         
@@ -22,6 +23,9 @@ public enum DependencyError: Error, CustomStringConvertible {
             
         case let .typeMismatch(key, type):
             return "Error attempting to `resolve` dependency for key '\(key)', the type registered did not match the type expected (`\(type)`).  Please check your call to `register` against your call to `resolve` to ensure the types match."
+            
+        case let .infiniteRecursion(callKeys):
+            return "Infinite recursion detected.  Perhaps you are trying to resolve a dependency inside of its own constructor.  Please check your register call.  The call stack looks like this: \(callKeys)"
         }
     }
 }

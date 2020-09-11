@@ -8,19 +8,32 @@
 
 import Foundation
 
+
+public enum DependencyScope {
+    case transient
+    case lazySingleton
+}
+
+
 public class DependenciesContainer {
     
     // MARK: - Types
     
     private enum DependencyState<T> {
-        case registered(Constructor<T>, PostConstruction?)
+        case registered(DependencyScope, Constructor<T>, PostConstruction?)
         case initialised(T)
+    }
+    
+    private struct DependencyKey: Hashable {
+        let type: String
+        let key: String?
     }
     
     // MARK: - Private members
     
-    private var dependencyStates = [String: Any]()
+    private var dependencyStates = [DependencyKey: Any]()
     private var nestedResolveCallCount = 0
+    private var nestedResolveCallKeys = [String]()
     private var postConstructionQueue = [PostConstruction]()
     
     // MARK: - Public
@@ -34,20 +47,20 @@ public class DependenciesContainer {
         register(type, key: key, constructor: constructor, postConstruction: nil)
     }
     
-    public func register<T>(_ type: T.Type, key: String? = nil, constructor: @escaping Constructor<T>, postConstruction: PostConstruction?) {
-        dependencyStates[key ?? self.key(type)] = DependencyState<T>.registered(constructor, postConstruction)
+    public func register<T>(_ type: T.Type, key: String? = nil, scope: DependencyScope = .lazySingleton ,constructor: @escaping Constructor<T>, postConstruction: PostConstruction?) {
+        dependencyStates[self.key(type, key: key)] = DependencyState<T>.registered(scope, constructor, postConstruction)
     }
     
     public func deregister<T>(_ type: T.Type) {
-        deregister(key: key(type))
+        deregister(key: self.key(type, key: key))
     }
     
     public func deregister(key: String) {
-        dependencyStates[key] = nil
+        dependencyStates[self.key(type, key: key)] = nil
     }
     
     public func resolve<T>(_ type: T.Type) throws -> T {
-        return try resolve(type, key: key(type))
+        return try resolve(type, key: self.key(type, key: key))
     }
     
     public func resolve<T>(_ type: T.Type, key: String) throws -> T {
@@ -62,7 +75,7 @@ public class DependenciesContainer {
         
         switch dependencyState {
             
-        case let .registered(constructor, postConstruction):
+        case let .registered(scope, constructor, postConstruction):
             
             // Keep a count of "nested `resolve` calls"
             // Why? If a `constructor` itself invokes a call (or calls) to `resolve` we
@@ -71,15 +84,23 @@ public class DependenciesContainer {
             // This ensures that dependencies don't get created more than once when we
             // have circular dependencies.
             nestedResolveCallCount += 1
+            
+            guard !nestedResolveCallKeys.contains(key) else {
+                throw DependencyError.infiniteRecursion(callKeys: nestedResolveCallKeys)
+            }
 
+            nestedResolveCallKeys.append(key)
+            
             // We use `do`and `defer` to ensure we decrement `nestedResolveCallCount` even if the
             // call to `constructor()` throws
             let dependency: T
             do {
                 defer {
                     nestedResolveCallCount -= 1
+                    nestedResolveCallKeys.removeLast()
                 }
                 dependency = try constructor(self)
+                
                 dependencyStates[key] = DependencyState<T>.initialised(dependency)
             }
             
@@ -107,7 +128,8 @@ public class DependenciesContainer {
     
     // MARK: - Private
     
-    private func key<T>(_ type: T.Type) -> String {
-        return String(reflecting: type)
+    private func key<T>(_ type: T.Type, key: String?) -> DependencyKey {
+        return DependencyKey(type: String(reflecting: type), key: key)
     }
+    
 }

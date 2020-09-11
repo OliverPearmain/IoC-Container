@@ -99,3 +99,7 @@ If more than one thread were to attempt to `register`,  `resolve` or `deregister
 #### Object Scope & Lifespan
 
 Granular control of object scope/lifespan is not currently possible.   At present, once a dependency has been resolved it remains cached within the `DependenciesContainer`.  It possible to `deregister` a dependency, which will remove it from the cache but one will need to `register` the dependency again.
+
+#### Post Construction Closure
+
+Pass depdendency 

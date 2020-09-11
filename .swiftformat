@@ -1,0 +1,3 @@
+--disable blankLinesAtEndOfScope,blankLinesAtStartOfScope,trailingSpace,indent,linebreaks,sortedImports 
+--self init-only
+--stripunusedargs unnamed-only
